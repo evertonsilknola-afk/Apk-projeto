@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
   BookOpen, CheckCircle, PenTool, BarChart3, AlertCircle, Trash2,
   BookMarked, Target, CalendarDays, Download, Upload, Check, X,
@@ -87,6 +87,52 @@ const EDITAL_DATA = [
   }
 ];
 
+// ---------- Armazenamento persistente ----------
+// Grava em DOIS lugares: localStorage + arquivo na memória interna do app (Directory.Data).
+const DATA_FILE = 'estudei-dados.json';
+const LS = {
+  progress: 'acs_study_progress_v2',
+  exercises: 'acs_study_exercises_v2',
+  schedule: 'acs_study_schedule_v2'
+};
+
+async function loadAll() {
+  if (Capacitor.isNativePlatform()) {
+    try {
+      const r = await Filesystem.readFile({ path: DATA_FILE, directory: Directory.Data, encoding: Encoding.UTF8 });
+      const parsed = JSON.parse(r.data);
+      if (parsed) return parsed;
+    } catch (e) { /* arquivo ainda não existe: usa o localStorage */ }
+  }
+  try {
+    return {
+      progress: JSON.parse(localStorage.getItem(LS.progress) || 'null'),
+      exercises: JSON.parse(localStorage.getItem(LS.exercises) || 'null'),
+      schedule: JSON.parse(localStorage.getItem(LS.schedule) || 'null')
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
+async function saveAll(data) {
+  try {
+    localStorage.setItem(LS.progress, JSON.stringify(data.progress));
+    localStorage.setItem(LS.exercises, JSON.stringify(data.exercises));
+    localStorage.setItem(LS.schedule, JSON.stringify(data.schedule));
+  } catch (e) { /* ignora */ }
+  if (Capacitor.isNativePlatform()) {
+    try {
+      await Filesystem.writeFile({
+        path: DATA_FILE,
+        data: JSON.stringify(data),
+        directory: Directory.Data,
+        encoding: Encoding.UTF8
+      });
+    } catch (e) { console.error('Falha ao gravar arquivo', e); }
+  }
+}
+
 const initialSchedule = {
   dom: { title: 'Dom', content: '' },
   seg: { title: 'Seg', content: '' },
@@ -115,28 +161,42 @@ export default function App() {
   const [isScheduleSaved, setIsScheduleSaved] = useState(false);
   const [loaded, setLoaded] = useState(false);
 
-  useEffect(() => {
-    try {
-      const savedProgress = localStorage.getItem('acs_study_progress_v2');
-      const savedExercises = localStorage.getItem('acs_study_exercises_v2');
-      const savedSchedule = localStorage.getItem('acs_study_schedule_v2');
+  const latest = useRef({ progress: {}, exercises: [], schedule: initialSchedule });
+  latest.current = { progress, exercises, schedule };
 
-      if (savedProgress) setProgress(JSON.parse(savedProgress));
-      if (savedExercises) setExercises(JSON.parse(savedExercises));
-      if (savedSchedule) setSchedule(JSON.parse(savedSchedule));
-    } catch (e) {
-      console.error('Falha ao ler dados salvos', e);
-    }
-    setLoaded(true);
+  // Carrega ao abrir o app
+  useEffect(() => {
+    (async () => {
+      const d = await loadAll();
+      if (d) {
+        if (d.progress) setProgress(d.progress);
+        if (d.exercises) setExercises(d.exercises);
+        if (d.schedule) setSchedule(d.schedule);
+      }
+      setLoaded(true);
+    })();
   }, []);
 
-  // Só grava depois de carregar, para nunca sobrescrever os dados salvos com o estado vazio inicial
+  // Salva automaticamente 0,4 s depois de qualquer alteração (só depois de carregar,
+  // para nunca sobrescrever os dados salvos com o estado vazio inicial)
   useEffect(() => {
     if (!loaded) return;
-    localStorage.setItem('acs_study_progress_v2', JSON.stringify(progress));
-    localStorage.setItem('acs_study_exercises_v2', JSON.stringify(exercises));
-    localStorage.setItem('acs_study_schedule_v2', JSON.stringify(schedule));
+    const t = setTimeout(() => saveAll(latest.current), 400);
+    return () => clearTimeout(t);
   }, [progress, exercises, schedule, loaded]);
+
+  // Salva na hora ao minimizar / sair do app
+  useEffect(() => {
+    if (!loaded) return;
+    const flush = () => saveAll(latest.current);
+    const onVis = () => { if (document.visibilityState === 'hidden') flush(); };
+    document.addEventListener('visibilitychange', onVis);
+    window.addEventListener('pagehide', flush);
+    return () => {
+      document.removeEventListener('visibilitychange', onVis);
+      window.removeEventListener('pagehide', flush);
+    };
+  }, [loaded]);
 
   const handleExport = async () => {
     const json = JSON.stringify({ progress, exercises, schedule });
@@ -203,7 +263,7 @@ export default function App() {
   };
 
   const handleSaveScheduleBtn = () => {
-    localStorage.setItem('acs_study_schedule_v2', JSON.stringify(schedule));
+    saveAll(latest.current);
     setIsScheduleSaved(true);
     setTimeout(() => setIsScheduleSaved(false), 3000);
   };
