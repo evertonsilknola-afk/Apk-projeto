@@ -3,51 +3,62 @@
 @tailwind utilities;
 
 html, body, #root { margin: 0; min-height: 100%; }
-body { -webkit-tap-highlight-color: transparent; }
+body {
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+  -webkit-font-smoothing: antialiased;
+}
+* { -webkit-touch-callout: none; }
+input, textarea, select { -webkit-touch-callout: default; user-select: text; }
 
 @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: none; } }
-.animate-in { animation: fadeIn .4s ease both; }
+.animate-in { animation: fadeIn .25s ease both; }
 
 .hide-scrollbar::-webkit-scrollbar { display: none; }
 .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
 
-/* Fundo animado para destacar o efeito Glass */
+/* Fundo ESTÁTICO (antes era animado e redesenhava a tela inteira a cada quadro) */
 .glass-container {
-  background: linear-gradient(-45deg, #d1fae5, #99f6e4, #bae6fd, #e0e7ff);
-  background-size: 400% 400%;
-  animation: gradientBg 15s ease infinite;
-}
-@keyframes gradientBg {
-  0% { background-position: 0% 50%; }
-  50% { background-position: 100% 50%; }
-  100% { background-position: 0% 50%; }
+  background: linear-gradient(135deg, #d1fae5, #99f6e4 35%, #bae6fd 70%, #e0e7ff);
+  background-attachment: fixed;
 }
 
-/* Glassmorphism global */
+/* Visual "vidro" leve: fundo translúcido SEM backdrop-filter nos cards (muito mais fluido) */
 .bg-white, .bg-slate-50 {
-  background: rgba(255, 255, 255, 0.1) !important;
-  backdrop-filter: blur(16px) !important;
-  -webkit-backdrop-filter: blur(16px) !important;
-  border-color: rgba(255, 255, 255, 0.4) !important;
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.05) !important;
+  background: rgba(255, 255, 255, 0.55) !important;
+  border-color: rgba(255, 255, 255, 0.7) !important;
+  box-shadow: 0 4px 16px 0 rgba(0, 0, 0, 0.05) !important;
 }
+.bg-slate-50 { background: rgba(255, 255, 255, 0.35) !important; }
+
+/* Desfoque só em 2 elementos fixos (cabeçalho e menu lateral), com blur menor */
 .glass-header {
-  background: rgba(255, 255, 255, 0.1) !important;
-  backdrop-filter: blur(20px) !important;
-  -webkit-backdrop-filter: blur(20px) !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.2) !important;
+  background: rgba(255, 255, 255, 0.55) !important;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.5) !important;
   padding-top: env(safe-area-inset-top);
+  transform: translateZ(0);
 }
 .glass-sidebar {
-  background: rgba(0, 191, 166, 0.2) !important;
-  backdrop-filter: blur(24px) !important;
-  -webkit-backdrop-filter: blur(24px) !important;
+  background: rgba(0, 150, 130, 0.88) !important;
   border-right: 1px solid rgba(255, 255, 255, 0.2) !important;
+  will-change: transform;
+  padding-top: env(safe-area-inset-top);
 }
+
 input, select, textarea {
-  background: rgba(255, 255, 255, 0.25) !important;
+  background: rgba(255, 255, 255, 0.6) !important;
   color: #0f172a !important;
 }
 input:focus, select:focus, textarea:focus {
-  background: rgba(255, 255, 255, 0.45) !important;
+  background: rgba(255, 255, 255, 0.9) !important;
+}
+
+/* Rolagem suave e sem recálculo desnecessário */
+table { content-visibility: auto; }
+button, label { touch-action: manipulation; }
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-in { animation: none; }
 }
