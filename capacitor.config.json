@@ -1,0 +1,9 @@
+{
+  "appId": "com.estudei.acs",
+  "appName": "Estudei",
+  "webDir": "dist",
+  "backgroundColor": "#99f6e4",
+  "android": {
+    "allowMixedContent": false
+  }
+}
